@@ -1,8 +1,7 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useMemo, Fragment } from "react";
 import Image from "next/image";
-import React from "react";
 import { getVoicePreference, saveVoicePreference } from "@/utils/localStorage";
 
 type SummaryCardProps = {
@@ -11,6 +10,7 @@ type SummaryCardProps = {
   videoTitle?: string;
 };
 
+// Use named function and export memo'd component to optimize re-renders
 export default function SummaryCard({
   summary,
   videoId,
@@ -23,13 +23,21 @@ export default function SummaryCard({
   const [selectedVoice, setSelectedVoice] = useState<string | null>(null);
 
   useEffect(() => {
-    // Get available voices
-    const voices = window.speechSynthesis.getVoices();
-    setAvailableVoices(voices);
+    // Initialize voice handling
+    const initVoices = () => {
+      const voices = window.speechSynthesis.getVoices();
+      if (voices.length > 0) {
+        setAvailableVoices(voices);
+      }
+    };
+
+    // Try to get voices immediately
+    initVoices();
 
     // Handle voice list changes
     const voicesChangedHandler = () => {
-      setAvailableVoices(window.speechSynthesis.getVoices());
+      const voices = window.speechSynthesis.getVoices();
+      setAvailableVoices(voices);
     };
 
     window.speechSynthesis.addEventListener(
@@ -37,9 +45,11 @@ export default function SummaryCard({
       voicesChangedHandler
     );
 
-    // Get saved voice preference
+    // Get saved voice preference - only once on mount
     const savedVoicePreference = getVoicePreference();
-    setSelectedVoice(savedVoicePreference);
+    if (savedVoicePreference) {
+      setSelectedVoice(savedVoicePreference);
+    }
 
     // Cleanup
     return () => {
@@ -51,8 +61,13 @@ export default function SummaryCard({
     };
   }, []);
 
-  // Get only the specific high-quality voices requested - wrapped in useCallback to prevent recreating on every render
-  const getHighQualityVoices = useCallback(() => {
+  // Get only the specific high-quality voices requested - wrapped in useMemo for performance
+  const highQualityVoices = useMemo(() => {
+    // Return early if no voices are available yet
+    if (availableVoices.length === 0) {
+      return [];
+    }
+
     // Specific list of voices to include (in order of preference)
     const specificVoices = [
       "Google US English", // Best natural sounding voice
@@ -89,11 +104,9 @@ export default function SummaryCard({
     return availableVoices.filter((voice) => voice.lang.includes("en"));
   }, [availableVoices]);
 
-  // Set default voice when available voices change
+  // Set default voice when available voices change - only when no voice is selected
   useEffect(() => {
-    if (availableVoices.length > 0 && !selectedVoice) {
-      const highQualityVoices = getHighQualityVoices();
-
+    if (highQualityVoices.length > 0 && !selectedVoice) {
       // Try to find Google US English as the default voice
       const googleVoice = highQualityVoices.find(
         (voice) =>
@@ -119,10 +132,10 @@ export default function SummaryCard({
         }
       }
     }
-  }, [availableVoices, selectedVoice, getHighQualityVoices]);
+  }, [availableVoices, selectedVoice, highQualityVoices]);
 
-  // Play the summary using text-to-speech
-  const playSummary = () => {
+  // Play the summary using text-to-speech - wrapped in useCallback
+  const playSummary = useCallback(() => {
     if (window.speechSynthesis.speaking) {
       window.speechSynthesis.cancel();
       setIsSpeaking(false);
@@ -139,31 +152,9 @@ export default function SummaryCard({
       if (voice) {
         utterance.voice = voice;
       }
-    } else {
-      // Fallback to a high-quality voice using our preferred list
-      const highQualityVoices = getHighQualityVoices();
-
-      // Try to find Google US English first
-      const googleVoice = highQualityVoices.find(
-        (voice) =>
-          voice.name === "Google US English" ||
-          voice.name.includes("Google US English")
-      );
-
-      if (googleVoice) {
-        utterance.voice = googleVoice;
-      } else if (highQualityVoices.length > 0) {
-        // Fallback to first high-quality voice
-        utterance.voice = highQualityVoices[0];
-      } else {
-        // Last resort: any English voice
-        const englishVoice = availableVoices.find((voice) =>
-          voice.lang.includes("en")
-        );
-        if (englishVoice) {
-          utterance.voice = englishVoice;
-        }
-      }
+    } else if (highQualityVoices.length > 0) {
+      // Use the memoized high-quality voices instead of recalculating
+      utterance.voice = highQualityVoices[0];
     }
 
     // Fine-tune speech parameters for more natural sound
@@ -175,9 +166,6 @@ export default function SummaryCard({
 
     // Volume: full volume
     utterance.volume = 1.0;
-
-    // We'll use the original summary text with browser-native speech pausing
-    utterance.text = summary;
 
     // Handle events
     utterance.onstart = () => setIsSpeaking(true);
@@ -204,7 +192,7 @@ export default function SummaryCard({
     }
 
     window.speechSynthesis.speak(utterance);
-  };
+  }, [summary, selectedVoice, availableVoices, highQualityVoices]);
 
   // Calculate estimated read time (about 150 words per minute for casual speech)
   const wordCount = summary.split(/\s+/).length;
@@ -262,7 +250,8 @@ export default function SummaryCard({
               className="h-full w-full object-cover transition-transform duration-300 group-hover:scale-105"
               width={160}
               height={120}
-              unoptimized={true}
+              priority
+              sizes="160px"
             />
           </div>
           <div className="absolute inset-0 bg-black/30 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
@@ -305,7 +294,7 @@ export default function SummaryCard({
               // Show all paragraphs - the length is now controlled at the API request level
 
               return (
-                <React.Fragment key={`header-${index}`}>
+                <Fragment key={`header-${index}`}>
                   <h3 className="font-semibold text-indigo-400 uppercase mt-3 mb-2">
                     {headerLabel}
                   </h3>
@@ -314,7 +303,7 @@ export default function SummaryCard({
                       {paragraph}
                     </p>
                   ))}
-                </React.Fragment>
+                </Fragment>
               );
             } else if (headerLabel.toUpperCase().includes("KEY POINTS")) {
               // Split the key points - the number of points is controlled at the API request level
@@ -323,7 +312,7 @@ export default function SummaryCard({
                 .filter((point) => point.trim().length > 0);
 
               return (
-                <React.Fragment key={`header-${index}`}>
+                <Fragment key={`header-${index}`}>
                   <h3 className="font-semibold text-indigo-400 uppercase mt-3 mb-2">
                     {headerLabel}
                   </h3>
@@ -336,17 +325,17 @@ export default function SummaryCard({
                       <span>{point}</span>
                     </div>
                   ))}
-                </React.Fragment>
+                </Fragment>
               );
             } else {
               // For MAIN TOPIC or other sections, always show
               return (
-                <React.Fragment key={`header-${index}`}>
+                <Fragment key={`header-${index}`}>
                   <h3 className="font-semibold text-indigo-400 uppercase mt-3 mb-2">
                     {headerLabel}
                   </h3>
                   <p>{headerContent}</p>
-                </React.Fragment>
+                </Fragment>
               );
             }
           }
@@ -393,7 +382,7 @@ export default function SummaryCard({
             }}
             className="bg-zinc-800 border border-zinc-700 rounded px-2 py-1 text-sm text-zinc-200 focus:outline-none focus:ring-1 focus:ring-indigo-500 focus:border-indigo-500"
           >
-            {getHighQualityVoices().map((voice) => (
+            {highQualityVoices.map((voice) => (
               <option key={voice.name} value={voice.name}>
                 {voice.name}
               </option>
