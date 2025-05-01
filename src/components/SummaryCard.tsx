@@ -1,6 +1,8 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import Image from "next/image";
+import React from "react";
 
 type SummaryCardProps = {
   summary: string;
@@ -82,25 +84,70 @@ export default function SummaryCard({
   return (
     <div className="w-full max-w-2xl bg-zinc-900/60 rounded-xl p-6 backdrop-blur-sm border border-zinc-800 shadow-lg transition-all duration-300 hover:shadow-xl">
       {videoTitle && (
-        <h2 className="text-xl font-medium text-zinc-100 mb-2 truncate">
-          {videoTitle}
-        </h2>
+        <div className="flex mb-2">
+          <h2 className="text-xl font-medium text-zinc-100 truncate flex-1">
+            {videoTitle}
+          </h2>
+        </div>
       )}
 
-      <div className="flex items-center gap-2 mb-4">
-        <div className="bg-zinc-800 rounded px-2 py-1 text-xs text-zinc-400">
-          {readTimeSeconds} sec read
+      {/* YouTube thumbnail and metadata card - mobile-friendly */}
+      <div className="flex mb-4 bg-zinc-800/50 rounded-lg overflow-hidden">
+        {/* Summary metadata - on the left */}
+        <div className="flex-1 p-4 flex flex-col justify-between">
+          <div className="flex flex-wrap gap-2 mb-2">
+            <div className="text-xs text-zinc-400">
+              {readTimeSeconds} sec read
+            </div>
+            <div className="text-xs text-zinc-400">{wordCount} words</div>
+          </div>
+          <a
+            href={`https://youtube.com/watch?v=${videoId}`}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="text-xs text-red-400 hover:text-red-300 transition-colors inline-flex items-center gap-1 w-fit"
+          >
+            <svg
+              xmlns="http://www.w3.org/2000/svg"
+              className="h-3 w-3"
+              viewBox="0 0 24 24"
+              fill="currentColor"
+            >
+              <path d="M8 5v14l11-7z" />
+            </svg>
+            Check on YouTube
+          </a>
         </div>
-        <div className="bg-zinc-800 rounded px-2 py-1 text-xs text-zinc-400">
-          {wordCount} words
-        </div>
+
+        {/* Thumbnail with border - on the right */}
         <a
           href={`https://youtube.com/watch?v=${videoId}`}
           target="_blank"
           rel="noopener noreferrer"
-          className="bg-red-900/70 hover:bg-red-800 rounded px-2 py-1 text-xs text-white transition-colors ml-auto"
+          className="block w-[140px] flex-shrink-0 group relative border-l border-zinc-700/60"
         >
-          View on YouTube
+          <div className="absolute inset-0 overflow-hidden">
+            <Image
+              src={`https://img.youtube.com/vi/${videoId}/mqdefault.jpg`}
+              alt="Video thumbnail"
+              className="h-full w-full object-cover transition-transform duration-300 group-hover:scale-105"
+              width={160}
+              height={120}
+              unoptimized={true}
+            />
+          </div>
+          <div className="absolute inset-0 bg-black/30 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
+            <div className="flex items-center justify-center w-10 h-10 rounded-full bg-red-600/90">
+              <svg
+                xmlns="http://www.w3.org/2000/svg"
+                className="h-5 w-5 text-white"
+                viewBox="0 0 24 24"
+                fill="currentColor"
+              >
+                <path d="M8 5v14l11-7z" />
+              </svg>
+            </div>
+          </div>
         </a>
       </div>
 
@@ -117,21 +164,18 @@ export default function SummaryCard({
             );
             const headerLabel = matches?.[1] || "";
             const headerContent = matches?.[2] || "";
-            
+
             // Special handling for SUMMARY section to add paragraph breaks
             if (headerLabel.toUpperCase().includes("SUMMARY")) {
               // Split the summary content by periods followed by spaces to create paragraphs
               const paragraphs = headerContent
                 .split(/\.\s+/)
-                .filter(para => para.trim().length > 0)
-                .map(para => para.trim() + (para.endsWith(".") ? "" : "."));
-              
+                .filter((para) => para.trim().length > 0)
+                .map((para) => para.trim() + (para.endsWith(".") ? "" : "."));
+
               return (
-                <>
-                  <h3
-                    key={`header-${index}`}
-                    className="font-semibold text-indigo-400 uppercase mt-3 mb-2"
-                  >
+                <React.Fragment key={`header-${index}`}>
+                  <h3 className="font-semibold text-indigo-400 uppercase mt-3 mb-2">
                     {headerLabel}
                   </h3>
                   {paragraphs.map((paragraph, paraIndex) => (
@@ -139,19 +183,16 @@ export default function SummaryCard({
                       {paragraph}
                     </p>
                   ))}
-                </>
+                </React.Fragment>
               );
             } else {
               return (
-                <>
-                  <h3
-                    key={`header-${index}`}
-                    className="font-semibold text-indigo-400 uppercase mt-3 mb-2"
-                  >
+                <React.Fragment key={`header-${index}`}>
+                  <h3 className="font-semibold text-indigo-400 uppercase mt-3 mb-2">
                     {headerLabel}
                   </h3>
                   <p>{headerContent}</p>
-                </>
+                </React.Fragment>
               );
             }
           }
