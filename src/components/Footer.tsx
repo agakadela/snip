@@ -1,24 +1,24 @@
-'use client';
+"use client";
 
-import Link from 'next/link';
-import { FaGithub, FaStar } from 'react-icons/fa';
+import Link from "next/link";
+import { FaGithub, FaStar } from "react-icons/fa";
 
 export default function Footer() {
   // GitHub repo URL - replace with your actual repo when ready
-  const githubUrl = 'https://github.com/AgaKadela/snip';
-  
+  const githubUrl = "https://github.com/agakadela/snip";
+
   // Function to handle starring the repo
   const handleStarClick = () => {
-    window.open(`${githubUrl}/stargazers`, '_blank');
+    window.open(`${githubUrl}/stargazers`, "_blank");
   };
 
   return (
     <footer className="w-full py-6 px-4 mt-12 border-t border-zinc-800">
       <div className="max-w-2xl mx-auto flex flex-col sm:flex-row items-center justify-between gap-4">
         <div className="text-zinc-400 text-sm">
-          © {new Date().getFullYear()} · Built by{' '}
+          © {new Date().getFullYear()} · Built by{" "}
           <Link
-            href="https://github.com/AgaKadela"
+            href="https://github.com/agakadela"
             target="_blank"
             rel="noopener noreferrer"
             className="text-indigo-400 hover:text-indigo-300 transition-colors"
