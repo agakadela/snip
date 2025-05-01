@@ -3,8 +3,8 @@
 import { useState, useEffect } from "react";
 import Image from "next/image";
 import { extractVideoId, getTranscript } from "@/lib/getTranscript";
-import { summarizeTranscript } from "@/lib/summarize";
-import { getCachedSummary, cacheSummary } from "@/utils/localStorage";
+import { summarizeTranscript, SummaryLength } from "@/lib/summarize";
+import { getCachedSummary, cacheSummary, getAvailableSummaryLengths } from "@/utils/localStorage";
 import SummaryCard from "@/components/SummaryCard";
 import ApiKeyInput from "@/components/ApiKeyInput";
 
@@ -16,6 +16,8 @@ export default function Home() {
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [showApiKeyModal, setShowApiKeyModal] = useState(false);
+  const [summaryLength, setSummaryLength] = useState<SummaryLength>("medium");
+  const [availableLengths, setAvailableLengths] = useState<SummaryLength[]>([]);
 
   // Validate URL as user types
   useEffect(() => {
@@ -36,25 +38,32 @@ export default function Home() {
       return;
     }
 
-    // Check if we have a cached summary
-    const cached = getCachedSummary(videoId);
+    const fetchVideoTitle = async () => {
+      try {
+        // Use our own API route to avoid Content Security Policy issues
+        const response = await fetch(
+          `/api/video-info?videoId=${videoId}`
+        );
+        const data = await response.json();
+        setVideoTitle(data.title);
+      } catch (error) {
+        console.error("Error fetching video title:", error);
+        setVideoTitle("");
+      }
+    };
+
+    fetchVideoTitle();
+    
+    // Check for available cached summary lengths
+    const availableSummaryLengths = getAvailableSummaryLengths(videoId);
+    setAvailableLengths(availableSummaryLengths);
+    
+    // If we have a cached summary for the current length, use it
+    const cached = getCachedSummary(videoId, summaryLength);
     if (cached) {
       setSummary(cached);
     }
-
-    // Fetch the video title using oEmbed API
-    fetch(
-      `https://www.youtube.com/oembed?url=https://www.youtube.com/watch?v=${videoId}&format=json`
-    )
-      .then((res) => res.json())
-      .then((data) => {
-        setVideoTitle(data.title);
-      })
-      .catch(() => {
-        // Not critical, so just clear the title if it fails
-        setVideoTitle(null);
-      });
-  }, [videoId]);
+  }, [videoId, summaryLength]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -64,8 +73,8 @@ export default function Home() {
       return;
     }
 
-    // Check if we already have a cached summary
-    const cached = getCachedSummary(videoId);
+    // Check if we already have a cached summary for the selected length
+    const cached = getCachedSummary(videoId, summaryLength);
     if (cached) {
       setSummary(cached);
       return;
@@ -79,11 +88,17 @@ export default function Home() {
       // 1. Get the transcript
       const transcript = await getTranscript(videoId);
 
-      // 2. Summarize the transcript
-      const summaryText = await summarizeTranscript(transcript);
+      // 2. Summarize the transcript with the selected length
+      const summaryText = await summarizeTranscript(transcript, summaryLength);
 
       // 3. Cache and display the summary
-      cacheSummary(videoId, summaryText);
+      cacheSummary(videoId, summaryText, summaryLength);
+      
+      // Update the available lengths
+      setAvailableLengths([...availableLengths, summaryLength].filter(
+        (value, index, self) => self.indexOf(value) === index
+      ));
+      
       setSummary(summaryText);
     } catch (err) {
       console.error("Error in summarization process:", err);
@@ -137,6 +152,7 @@ export default function Home() {
 
       <main className="w-full max-w-2xl flex flex-col items-center gap-8">
         <form onSubmit={handleSubmit} className="w-full animate-fade-in-up">
+          {/* Input field with submit button */}
           <div className="relative">
             <input
               type="text"
@@ -193,6 +209,34 @@ export default function Home() {
               )}
             </button>
           </div>
+          
+          {/* Summary length selector with cached indicators */}
+          <div className="mt-3 flex flex-wrap items-center justify-between gap-2">
+            <div className="text-xs text-zinc-500">Summary length:</div>
+            <div className="flex gap-1">
+              {["short", "medium", "long"].map((length) => {
+                const isCached = availableLengths.includes(length as SummaryLength);
+                return (
+                  <button
+                    key={length}
+                    type="button"
+                    onClick={() => setSummaryLength(length as SummaryLength)}
+                    className={`px-2 py-1 text-xs rounded-md transition-colors flex items-center ${
+                      summaryLength === length
+                        ? "bg-indigo-600 text-white"
+                        : "bg-zinc-800 text-zinc-400 hover:bg-zinc-700"
+                    }`}
+                  >
+                    {isCached && (
+                      <span className="w-1.5 h-1.5 rounded-full bg-green-400 mr-1.5" aria-hidden="true"></span>
+                    )}
+                    <span>{length.charAt(0).toUpperCase() + length.slice(1).replace("-", " ")}</span>
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+          
           {error && <p className="text-red-500 text-sm mt-2">{error}</p>}
           {videoId && !error && (
             <p className="text-green-500 text-sm mt-2">Valid YouTube URL ✓</p>

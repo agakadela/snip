@@ -172,6 +172,8 @@ export default function SummaryCard({
                 .split(/\.\s+/)
                 .filter((para) => para.trim().length > 0)
                 .map((para) => para.trim() + (para.endsWith(".") ? "" : "."));
+              
+              // Show all paragraphs - the length is now controlled at the API request level
 
               return (
                 <React.Fragment key={`header-${index}`}>
@@ -185,7 +187,27 @@ export default function SummaryCard({
                   ))}
                 </React.Fragment>
               );
+            } else if (headerLabel.toUpperCase().includes("KEY POINTS")) {
+              // Split the key points - the number of points is controlled at the API request level
+              const points = headerContent
+                .split(/\s*-\s+/) // Split by bullet points (dash with optional spaces before)
+                .filter(point => point.trim().length > 0);
+              
+              return (
+                <React.Fragment key={`header-${index}`}>
+                  <h3 className="font-semibold text-indigo-400 uppercase mt-3 mb-2">
+                    {headerLabel}
+                  </h3>
+                  {points.map((point, pointIndex) => (
+                    <div key={`point-${index}-${pointIndex}`} className="flex ml-2 mb-2">
+                      <span className="mr-2">•</span>
+                      <span>{point}</span>
+                    </div>
+                  ))}
+                </React.Fragment>
+              );
             } else {
+              // For MAIN TOPIC or other sections, always show
               return (
                 <React.Fragment key={`header-${index}`}>
                   <h3 className="font-semibold text-indigo-400 uppercase mt-3 mb-2">
