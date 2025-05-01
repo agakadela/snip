@@ -23,7 +23,7 @@ Try it at: [https://snip.vercel.app](https://snip.vercel.app)
 Frontend: Next.js 15 with App Router + TailwindCSS  
 Hosting: Vercel (Free tier)  
 AI Model: OpenRouter (meta-llama/llama-4-maverick:free)  
-Transcript Extraction: youtube-transcript-api  
+Transcript Extraction: youtube-caption-extractor  
 Text-to-Speech: `window.speechSynthesis` (native browser support)  
 Local Storage: Used to cache results and store optional user API key  
 No backend database or user login
