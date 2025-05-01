@@ -1,8 +1,9 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import Image from "next/image";
 import React from "react";
+import { getVoicePreference, saveVoicePreference } from "@/utils/localStorage";
 
 type SummaryCardProps = {
   summary: string;
@@ -19,6 +20,7 @@ export default function SummaryCard({
   const [availableVoices, setAvailableVoices] = useState<
     SpeechSynthesisVoice[]
   >([]);
+  const [selectedVoice, setSelectedVoice] = useState<string | null>(null);
 
   useEffect(() => {
     // Get available voices
@@ -35,6 +37,10 @@ export default function SummaryCard({
       voicesChangedHandler
     );
 
+    // Get saved voice preference
+    const savedVoicePreference = getVoicePreference();
+    setSelectedVoice(savedVoicePreference);
+
     // Cleanup
     return () => {
       window.speechSynthesis.removeEventListener(
@@ -44,6 +50,76 @@ export default function SummaryCard({
       window.speechSynthesis.cancel(); // Cancel any ongoing speech on unmount
     };
   }, []);
+
+  // Get only the specific high-quality voices requested - wrapped in useCallback to prevent recreating on every render
+  const getHighQualityVoices = useCallback(() => {
+    // Specific list of voices to include (in order of preference)
+    const specificVoices = [
+      "Google US English", // Best natural sounding voice
+      "Google UK English Female",
+      "Google UK English Male",
+      "Daniel (English (United Kingdom))", // Good macOS/UK voice
+      "Samantha", // Good macOS voice
+      "Alex", // Good macOS voice
+    ];
+
+    // Filter available voices to match our specific list
+    const filteredVoices = availableVoices.filter((voice) => {
+      // Match exact names or include partial matches for flexibility across systems
+      return specificVoices.some(
+        (preferredName) =>
+          voice.name === preferredName || voice.name.includes(preferredName)
+      );
+    });
+
+    // If we found our specific voices, sort them by our preference order
+    if (filteredVoices.length > 0) {
+      return filteredVoices.sort((a, b) => {
+        const aIndex = specificVoices.findIndex(
+          (name) => a.name === name || a.name.includes(name)
+        );
+        const bIndex = specificVoices.findIndex(
+          (name) => b.name === name || b.name.includes(name)
+        );
+        return aIndex - bIndex; // Lower index = higher in the list
+      });
+    }
+
+    // Fallback: if none of our specific voices are available, return English voices
+    return availableVoices.filter((voice) => voice.lang.includes("en"));
+  }, [availableVoices]);
+
+  // Set default voice when available voices change
+  useEffect(() => {
+    if (availableVoices.length > 0 && !selectedVoice) {
+      const highQualityVoices = getHighQualityVoices();
+
+      // Try to find Google US English as the default voice
+      const googleVoice = highQualityVoices.find(
+        (voice) =>
+          voice.name === "Google US English" ||
+          voice.name.includes("Google US English")
+      );
+
+      if (googleVoice) {
+        setSelectedVoice(googleVoice.name);
+        saveVoicePreference(googleVoice.name);
+      } else if (highQualityVoices.length > 0) {
+        // Fallback to first high-quality voice
+        setSelectedVoice(highQualityVoices[0].name);
+        saveVoicePreference(highQualityVoices[0].name);
+      } else {
+        // Last resort: any English voice
+        const englishVoice = availableVoices.find((voice) =>
+          voice.lang.includes("en")
+        );
+        if (englishVoice) {
+          setSelectedVoice(englishVoice.name);
+          saveVoicePreference(englishVoice.name);
+        }
+      }
+    }
+  }, [availableVoices, selectedVoice, getHighQualityVoices]);
 
   // Play the summary using text-to-speech
   const playSummary = () => {
@@ -55,24 +131,77 @@ export default function SummaryCard({
 
     const utterance = new SpeechSynthesisUtterance(summary);
 
-    // Try to find a good English voice
-    const preferredVoice =
-      availableVoices.find(
-        (voice) =>
-          voice.lang.includes("en") &&
-          (voice.name.includes("Daniel") || voice.name.includes("Samantha"))
-      ) || availableVoices.find((voice) => voice.lang.includes("en"));
+    // Use the selected voice if available
+    if (selectedVoice) {
+      const voice = availableVoices.find(
+        (voice) => voice.name === selectedVoice
+      );
+      if (voice) {
+        utterance.voice = voice;
+      }
+    } else {
+      // Fallback to a high-quality voice using our preferred list
+      const highQualityVoices = getHighQualityVoices();
 
-    if (preferredVoice) {
-      utterance.voice = preferredVoice;
+      // Try to find Google US English first
+      const googleVoice = highQualityVoices.find(
+        (voice) =>
+          voice.name === "Google US English" ||
+          voice.name.includes("Google US English")
+      );
+
+      if (googleVoice) {
+        utterance.voice = googleVoice;
+      } else if (highQualityVoices.length > 0) {
+        // Fallback to first high-quality voice
+        utterance.voice = highQualityVoices[0];
+      } else {
+        // Last resort: any English voice
+        const englishVoice = availableVoices.find((voice) =>
+          voice.lang.includes("en")
+        );
+        if (englishVoice) {
+          utterance.voice = englishVoice;
+        }
+      }
     }
 
-    utterance.rate = 1;
-    utterance.pitch = 1;
+    // Fine-tune speech parameters for more natural sound
+    // Rate: slightly slower than default for better clarity (0.9-0.95 sounds more natural than 1.0)
+    utterance.rate = 0.92;
 
+    // Pitch: slightly lower than default makes most voices sound more natural
+    utterance.pitch = 0.95;
+
+    // Volume: full volume
+    utterance.volume = 1.0;
+
+    // We'll use the original summary text with browser-native speech pausing
+    utterance.text = summary;
+
+    // Handle events
     utterance.onstart = () => setIsSpeaking(true);
     utterance.onend = () => setIsSpeaking(false);
     utterance.onerror = () => setIsSpeaking(false);
+
+    // Adjust pitch and rate for specific voices to optimize their natural sound
+    if (utterance.voice) {
+      const voiceName = utterance.voice.name;
+      if (voiceName.includes("Google")) {
+        // Google voices sound best with these settings
+        utterance.rate = 0.95;
+        utterance.pitch = 1.0;
+      } else if (voiceName.includes("Daniel")) {
+        utterance.rate = 0.9;
+        utterance.pitch = 0.92;
+      } else if (voiceName.includes("Samantha")) {
+        utterance.rate = 0.95;
+        utterance.pitch = 1.0;
+      } else if (voiceName.includes("Alex")) {
+        utterance.rate = 0.9;
+        utterance.pitch = 0.9;
+      }
+    }
 
     window.speechSynthesis.speak(utterance);
   };
@@ -172,7 +301,7 @@ export default function SummaryCard({
                 .split(/\.\s+/)
                 .filter((para) => para.trim().length > 0)
                 .map((para) => para.trim() + (para.endsWith(".") ? "" : "."));
-              
+
               // Show all paragraphs - the length is now controlled at the API request level
 
               return (
@@ -191,15 +320,18 @@ export default function SummaryCard({
               // Split the key points - the number of points is controlled at the API request level
               const points = headerContent
                 .split(/\s*-\s+/) // Split by bullet points (dash with optional spaces before)
-                .filter(point => point.trim().length > 0);
-              
+                .filter((point) => point.trim().length > 0);
+
               return (
                 <React.Fragment key={`header-${index}`}>
                   <h3 className="font-semibold text-indigo-400 uppercase mt-3 mb-2">
                     {headerLabel}
                   </h3>
                   {points.map((point, pointIndex) => (
-                    <div key={`point-${index}-${pointIndex}`} className="flex ml-2 mb-2">
+                    <div
+                      key={`point-${index}-${pointIndex}`}
+                      className="flex ml-2 mb-2"
+                    >
                       <span className="mr-2">•</span>
                       <span>{point}</span>
                     </div>
@@ -244,6 +376,30 @@ export default function SummaryCard({
             );
           }
         })}
+      </div>
+
+      {/* Voice selection dropdown */}
+      <div className="flex items-center justify-end mb-3">
+        <div className="flex items-center gap-2">
+          <label htmlFor="voice-select" className="text-sm text-zinc-400">
+            Speaking voice:
+          </label>
+          <select
+            id="voice-select"
+            value={selectedVoice || ""}
+            onChange={(e) => {
+              setSelectedVoice(e.target.value);
+              saveVoicePreference(e.target.value);
+            }}
+            className="bg-zinc-800 border border-zinc-700 rounded px-2 py-1 text-sm text-zinc-200 focus:outline-none focus:ring-1 focus:ring-indigo-500 focus:border-indigo-500"
+          >
+            {getHighQualityVoices().map((voice) => (
+              <option key={voice.name} value={voice.name}>
+                {voice.name}
+              </option>
+            ))}
+          </select>
+        </div>
       </div>
 
       <button

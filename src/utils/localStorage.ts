@@ -7,6 +7,7 @@
 const STORAGE_KEYS = {
   API_KEY: 'snip-openrouter-api-key',
   SUMMARIES: 'snip-summaries',
+  VOICE_PREFERENCE: 'snip-voice-preference',
 };
 
 import { SummaryLength } from "@/lib/summarize";
@@ -147,4 +148,22 @@ export const getAvailableSummaryLengths = (videoId: string): SummaryLength[] => 
     console.error('Error parsing cached summaries:', error);
     return [];
   }
+};
+
+/**
+ * Get the user's preferred voice for text-to-speech
+ * @returns The name of the preferred voice or null if not set
+ */
+export const getVoicePreference = (): string | null => {
+  if (typeof window === 'undefined') return null;
+  return localStorage.getItem(STORAGE_KEYS.VOICE_PREFERENCE);
+};
+
+/**
+ * Save the user's preferred voice for text-to-speech
+ * @param voiceName The name of the preferred voice
+ */
+export const saveVoicePreference = (voiceName: string): void => {
+  if (typeof window === 'undefined') return;
+  localStorage.setItem(STORAGE_KEYS.VOICE_PREFERENCE, voiceName);
 };
