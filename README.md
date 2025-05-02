@@ -2,11 +2,13 @@
 
 ## Overview
 
+![Snip Logo](public/snip-logo.svg)
+
 Snip is a lightweight, AI-powered web app that summarizes any YouTube video into a friendly, spoken-style script that takes just 30 seconds to read. It's fully free, fast, and requires no login or account.
 
 ## Live Demo (Coming Soon)
 
-Try it at: [https://snip.vercel.app](https://snip.vercel.app)
+Try it at: [https://snip-virid.vercel.app/](https://snip-virid.vercel.app/)
 
 ## What It Does:
 

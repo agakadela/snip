@@ -1,8 +1,10 @@
 "use client";
 
-import { useState, useEffect, useCallback, useMemo, Fragment } from "react";
+import { useState, useEffect, useCallback, useMemo, Fragment, ReactNode } from "react";
 import Image from "next/image";
 import { getVoicePreference, saveVoicePreference } from "@/utils/localStorage";
+import { Prism as SyntaxHighlighter } from "react-syntax-highlighter";
+import { vscDarkPlus } from "react-syntax-highlighter/dist/cjs/styles/prism";
 
 type SummaryCardProps = {
   summary: string;
@@ -10,7 +12,156 @@ type SummaryCardProps = {
   videoTitle?: string;
 };
 
-// Use named function and export memo'd component to optimize re-renders
+// Helper function to process and render summary content with code blocks
+function renderSummaryContent(summaryText: string): ReactNode {
+  const lines = summaryText.split("\n");
+  
+  // Process the lines to find code blocks and format accordingly
+  const renderedContent: ReactNode[] = [];
+  let skipToIndex = -1;
+  
+  for (let i = 0; i < lines.length; i++) {
+    // Skip lines that are part of a code block we've already processed
+    if (i <= skipToIndex) continue;
+    
+    const line = lines[i];
+    
+    // Check for code block start
+    if (line.trim().startsWith("```")) {
+      // Extract language from opening tag
+      const langMatch = line.trim().match(/^```(.*)$/);
+      const language = langMatch && langMatch[1] ? langMatch[1].trim() : "typescript";
+      
+      // Look for closing tag
+      const codeContent: string[] = [];
+      let foundClosing = false;
+      let j = i + 1;
+      
+      while (j < lines.length) {
+        if (lines[j].trim() === "```") {
+          foundClosing = true;
+          break;
+        }
+        codeContent.push(lines[j]);
+        j++;
+      }
+      
+      if (foundClosing) {
+        // Add code block with syntax highlighting
+        renderedContent.push(
+          <div key={`code-${i}`} className="my-4 overflow-hidden rounded-md">
+            <SyntaxHighlighter 
+              language={language}
+              style={vscDarkPlus}
+              customStyle={{
+                borderRadius: '0.375rem',
+                fontSize: '0.875rem',
+                margin: 0,
+                padding: '1rem'
+              }}
+            >
+              {codeContent.join("\n")}
+            </SyntaxHighlighter>
+          </div>
+        );
+        
+        // Skip past the closing tag
+        skipToIndex = j;
+        continue;
+      }
+    }
+    
+    // Process non-code blocks with the original logic
+    const cleanLine = line.replace(/^#+\s+/, "");
+    
+    // Section headers (MAIN TOPIC:, KEY POINTS:, SUMMARY:)
+    if (cleanLine.match(/^(MAIN TOPIC:|KEY POINTS:|SUMMARY:)(.*)$/i)) {
+      const matches = cleanLine.match(/^(MAIN TOPIC:|KEY POINTS:|SUMMARY:)(.*)$/i);
+      const headerLabel = matches?.[1] || "";
+      const headerContent = matches?.[2] || "";
+      
+      // Special handling for SUMMARY section
+      if (headerLabel.toUpperCase().includes("SUMMARY")) {
+        const paragraphs = headerContent
+          .split(/\.\s+/)
+          .filter((para) => para.trim().length > 0)
+          .map((para) => para.trim() + (para.endsWith(".") ? "" : "."));
+        
+        renderedContent.push(
+          <Fragment key={`header-${i}`}>
+            <h3 className="font-semibold text-indigo-400 uppercase mt-3 mb-2">
+              {headerLabel}
+            </h3>
+            {paragraphs.map((paragraph, paraIndex) => (
+              <p key={`para-${i}-${paraIndex}`} className="mb-3">
+                {paragraph}
+              </p>
+            ))}
+          </Fragment>
+        );
+      } 
+      // Special handling for KEY POINTS section
+      else if (headerLabel.toUpperCase().includes("KEY POINTS")) {
+        const points = headerContent
+          .split(/\s*-\s+/)
+          .filter((point) => point.trim().length > 0);
+        
+        renderedContent.push(
+          <Fragment key={`header-${i}`}>
+            <h3 className="font-semibold text-indigo-400 uppercase mt-3 mb-2">
+              {headerLabel}
+            </h3>
+            {points.map((point, pointIndex) => (
+              <div key={`point-${i}-${pointIndex}`} className="flex ml-2 mb-2">
+                <span className="mr-2">•</span>
+                <span>{point}</span>
+              </div>
+            ))}
+          </Fragment>
+        );
+      } 
+      // Other section headers
+      else {
+        renderedContent.push(
+          <Fragment key={`header-${i}`}>
+            <h3 className="font-semibold text-indigo-400 uppercase mt-3 mb-2">
+              {headerLabel}
+            </h3>
+            <p>{headerContent}</p>
+          </Fragment>
+        );
+      }
+    }
+    // Bullet points
+    else if (
+      cleanLine.trim().startsWith("-") ||
+      cleanLine.trim().startsWith("•") ||
+      cleanLine.trim().startsWith("*")
+    ) {
+      renderedContent.push(
+        <div key={`bullet-${i}`} className="flex ml-2 mb-2">
+          <span className="mr-2">•</span>
+          <span>{cleanLine.replace(/^[-•*]\s*/, "")}</span>
+        </div>
+      );
+    }
+    // Empty lines
+    else if (cleanLine.trim() === "") {
+      renderedContent.push(<div key={`empty-${i}`} className="h-2"></div>);
+    }
+    // Regular text
+    else {
+      renderedContent.push(
+        <p key={`text-${i}`} className="mb-2">
+          {cleanLine}
+        </p>
+      );
+    }
+  }
+  
+  return renderedContent;
+}
+
 export default function SummaryCard({
   summary,
   videoId,
@@ -271,100 +422,7 @@ export default function SummaryCard({
 
       <div className="bg-zinc-800/50 rounded-lg p-4 mb-4 text-zinc-200 text-base leading-relaxed">
         {/* Format the structured summary with sections */}
-        {summary.split("\n").map((line, index) => {
-          // Remove any markdown symbols like #, ##, etc. at the beginning of lines
-          const cleanLine = line.replace(/^#+\s+/, "");
-
-          // For section headers (MAIN TOPIC:, KEY POINTS:, SUMMARY:)
-          if (cleanLine.match(/^(MAIN TOPIC:|KEY POINTS:|SUMMARY:)(.*)$/i)) {
-            const matches = cleanLine.match(
-              /^(MAIN TOPIC:|KEY POINTS:|SUMMARY:)(.*)$/i
-            );
-            const headerLabel = matches?.[1] || "";
-            const headerContent = matches?.[2] || "";
-
-            // Special handling for SUMMARY section to add paragraph breaks
-            if (headerLabel.toUpperCase().includes("SUMMARY")) {
-              // Split the summary content by periods followed by spaces to create paragraphs
-              const paragraphs = headerContent
-                .split(/\.\s+/)
-                .filter((para) => para.trim().length > 0)
-                .map((para) => para.trim() + (para.endsWith(".") ? "" : "."));
-
-              // Show all paragraphs - the length is now controlled at the API request level
-
-              return (
-                <Fragment key={`header-${index}`}>
-                  <h3 className="font-semibold text-indigo-400 uppercase mt-3 mb-2">
-                    {headerLabel}
-                  </h3>
-                  {paragraphs.map((paragraph, paraIndex) => (
-                    <p key={`para-${index}-${paraIndex}`} className="mb-3">
-                      {paragraph}
-                    </p>
-                  ))}
-                </Fragment>
-              );
-            } else if (headerLabel.toUpperCase().includes("KEY POINTS")) {
-              // Split the key points - the number of points is controlled at the API request level
-              const points = headerContent
-                .split(/\s*-\s+/) // Split by bullet points (dash with optional spaces before)
-                .filter((point) => point.trim().length > 0);
-
-              return (
-                <Fragment key={`header-${index}`}>
-                  <h3 className="font-semibold text-indigo-400 uppercase mt-3 mb-2">
-                    {headerLabel}
-                  </h3>
-                  {points.map((point, pointIndex) => (
-                    <div
-                      key={`point-${index}-${pointIndex}`}
-                      className="flex ml-2 mb-2"
-                    >
-                      <span className="mr-2">•</span>
-                      <span>{point}</span>
-                    </div>
-                  ))}
-                </Fragment>
-              );
-            } else {
-              // For MAIN TOPIC or other sections, always show
-              return (
-                <Fragment key={`header-${index}`}>
-                  <h3 className="font-semibold text-indigo-400 uppercase mt-3 mb-2">
-                    {headerLabel}
-                  </h3>
-                  <p>{headerContent}</p>
-                </Fragment>
-              );
-            }
-          }
-          // For bullet points (lines starting with - or • or *)
-          else if (
-            cleanLine.trim().startsWith("-") ||
-            cleanLine.trim().startsWith("•") ||
-            cleanLine.trim().startsWith("*")
-          ) {
-            return (
-              <div key={index} className="flex ml-2 mb-2">
-                <span className="mr-2">•</span>
-                <span>{cleanLine.replace(/^[-•*]\s*/, "")}</span>
-              </div>
-            );
-          }
-          // For empty lines
-          else if (cleanLine.trim() === "") {
-            return <div key={index} className="h-2"></div>;
-          }
-          // For regular text
-          else {
-            return (
-              <p key={index} className="mb-2">
-                {cleanLine}
-              </p>
-            );
-          }
-        })}
+        {renderSummaryContent(summary)}
       </div>
 
       {/* Voice selection dropdown */}
