@@ -187,7 +187,7 @@ export default function Home() {
   };
 
   return (
-    <div className='min-h-screen bg-zinc-950 text-white flex flex-col items-center px-4 py-12 sm:py-16'>
+    <div className=' bg-zinc-950 text-white flex flex-col items-center px-4 py-12 sm:py-16'>
       <header className='w-full max-w-2xl flex flex-col items-center mb-12'>
         <div className='flex items-center gap-2 mb-6'>
           <Image
