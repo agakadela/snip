@@ -13,7 +13,6 @@ type SummaryCardProps = {
   videoTitle?: string;
 };
 
-// Helper function to strip markdown formatting
 const stripMarkdown = (markdown: string): string => {
   // Replace code blocks
   let text = markdown.replace(
@@ -24,10 +23,8 @@ const stripMarkdown = (markdown: string): string => {
   // Replace inline code
   text = text.replace(/`([^`]+)`/g, '$1');
 
-  // Replace headers
+  // Replace headers, bold and italic (keep the text)
   text = text.replace(/^#{1,6}\s+(.+)$/gm, '$1');
-
-  // Replace bold and italic
   text = text.replace(/\*\*(.*?)\*\*/g, '$1');
   text = text.replace(/__(.*?)__/g, '$1');
   text = text.replace(/\*(.*?)\*/g, '$1');
@@ -35,18 +32,6 @@ const stripMarkdown = (markdown: string): string => {
 
   // Replace links
   text = text.replace(/\[([^\]]+)\]\(([^)]+)\)/g, '$1');
-
-  // Replace images
-  text = text.replace(/!\[([^\]]+)\]\(([^)]+)\)/g, 'Image: $1');
-
-  // Replace bullet points
-  text = text.replace(/^\s*[-*+]\s+(.+)$/gm, '• $1');
-
-  // Replace numbered lists
-  text = text.replace(/^\s*\d+\.\s+(.+)$/gm, '$1');
-
-  // Replace horizontal rules
-  text = text.replace(/^\s*[-*_]{3,}\s*$/gm, 'Section break.');
 
   return text;
 };
@@ -176,7 +161,7 @@ export default function SummaryCard({
   const readTimeSeconds = Math.round((wordCount / 150) * 60);
 
   return (
-    <div className='w-full max-w-2xl bg-zinc-900/70 rounded-xl p-6 backdrop-blur-sm border border-zinc-800 shadow-xl transition-all duration-300 hover:shadow-2xl'>
+    <div className='card w-full max-w-2xl bg-zinc-900/70 rounded-xl p-6 backdrop-blur-sm border border-zinc-800/60 shadow-xl transition-all duration-300'>
       {/* Action buttons for quick access */}
       <ActionButtons
         videoId={videoId}
@@ -187,14 +172,16 @@ export default function SummaryCard({
 
       {/* Main content area */}
       <div className='bg-gradient-to-b from-zinc-800/70 to-zinc-900/70 rounded-lg p-6 mb-5 text-zinc-200 text-base leading-relaxed relative overflow-hidden shadow-lg border border-zinc-700/30'>
-        <div className='absolute top-0 right-0 w-20 h-20 bg-indigo-500/10 rounded-full blur-2xl'></div>
-        <div className='absolute bottom-0 left-0 w-32 h-32 bg-purple-500/10 rounded-full blur-3xl'></div>
+        {/* Background gradient effects */}
+        <div className='absolute top-0 right-0 w-36 h-36 bg-indigo-500/5 rounded-full blur-3xl'></div>
+        <div className='absolute bottom-0 left-0 w-48 h-48 bg-purple-500/5 rounded-full blur-3xl'></div>
+        <div className='absolute top-1/3 left-1/3 w-24 h-24 bg-blue-500/5 rounded-full blur-2xl'></div>
 
         <SummaryContent summary={summary} videoTitle={videoTitle} />
       </div>
 
       {/* Voice controls */}
-      <div className='flex items-center justify-between mb-4'>
+      <div className='flex items-center justify-between mb-3 bg-zinc-800/30 p-3 rounded-lg border border-zinc-700/20'>
         <VoiceSelector
           selectedVoice={selectedVoice || ''}
           voices={highQualityVoices}

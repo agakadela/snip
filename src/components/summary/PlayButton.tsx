@@ -9,7 +9,18 @@ export default function PlayButton({ isSpeaking, onClick }: PlayButtonProps) {
   return (
     <button
       onClick={onClick}
-      className='flex items-center gap-2 px-3 py-1.5 rounded-md bg-indigo-600/80 hover:bg-indigo-600 text-white text-sm font-medium transition-colors duration-200'
+      className={`
+        flex items-center gap-2 px-4 py-2 rounded-md
+        ${
+          isSpeaking
+            ? 'bg-red-600/80 hover:bg-red-600 text-white'
+            : 'bg-indigo-600/80 hover:bg-indigo-600 text-white'
+        }
+        text-sm font-medium transition-all duration-200
+        shadow-sm hover:shadow-md border border-transparent
+        hover:border-indigo-500/50 hover:-translate-y-0.5
+        active:translate-y-0 active:shadow-sm
+      `}
     >
       {isSpeaking ? (
         <>
