@@ -16,7 +16,7 @@ Try it at: [https://snip-virid.vercel.app/](https://snip-virid.vercel.app/)
 - The app extracts the transcript
 - Sends the transcript to an AI model (LLaMA 4 Maverick via OpenRouter)
 - Returns a natural, casual summary under 30 seconds long
-- Plays the summary aloud using the browser’s voice engine
+- Plays the summary aloud using the browser's voice engine
 - Stores results locally to avoid duplicate calls
 - If API rate limits are hit, users can paste their own OpenRouter key
 
@@ -62,7 +62,13 @@ OPENROUTER_API_KEY=your-api-key-here
 
 ## Prompt Used:
 
-> "Summarize the following YouTube transcript into a natural, spoken-style script that takes no more than 30 seconds to read aloud. Use casual, friendly language. Avoid robotic or technical phrasing."
+The app offers three summary lengths (short, medium, long), each using a conversational approach:
+
+- **Short**: Creates a concise, friendly summary (~150-200 words) highlighting key points
+- **Medium**: Provides a thorough yet conversational summary (~250-350 words) of important information
+- **Long**: Delivers a comprehensive explanation (~500-800 words) while maintaining a natural tone
+
+All prompts focus on creating summaries that sound like a friend explaining the video in a casual, accessible way.
 
 ## Rate Limit Handling:
 

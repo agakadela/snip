@@ -1,11 +1,10 @@
-import type { NextConfig } from "next";
+import type { NextConfig } from 'next';
 
 const nextConfig: NextConfig = {
   reactStrictMode: true,
-  
+
   // Configure allowed image domains
   images: {
-    domains: ['i.ytimg.com', 'img.youtube.com'],
     remotePatterns: [
       {
         protocol: 'https',
@@ -19,7 +18,7 @@ const nextConfig: NextConfig = {
       },
     ],
   },
-  
+
   // Add security headers
   async headers() {
     return [
