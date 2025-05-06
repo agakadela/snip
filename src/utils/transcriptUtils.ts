@@ -19,10 +19,13 @@ export async function fetchTranscriptClientSide(
   videoId: string
 ): Promise<string> {
   try {
-    // Step 1: Fetch the YouTube video page HTML
-    const videoPageResponse = await fetch(
-      `https://www.youtube.com/watch?v=${videoId}`
-    );
+    // CORS proxy setup
+    const proxy = 'https://corsproxy.io/?';
+
+    // Step 1: Fetch the YouTube video page HTML using a CORS proxy
+    const youtubeUrl = `https://www.youtube.com/watch?v=${videoId}`;
+    const proxyUrl = proxy + encodeURIComponent(youtubeUrl);
+    const videoPageResponse = await fetch(proxyUrl);
     const html = await videoPageResponse.text();
 
     // Step 2: Extract captionTracks from the HTML
@@ -41,25 +44,17 @@ export async function fetchTranscriptClientSide(
       throw new Error('No suitable caption track found');
     }
 
-    // Step 4: Fetch the transcript XML
-    let transcriptXml;
-    try {
-      // Try direct fetch first
-      const transcriptResponse = await fetch(englishTrack.baseUrl);
-      transcriptXml = await transcriptResponse.text();
-    } catch {
-      // If fetch fails (likely CORS error), try using a proxy
-      console.log('Direct fetch failed, trying CORS proxy');
-      const proxy = 'https://corsproxy.io/?';
-      const proxyUrl = proxy + encodeURIComponent(englishTrack.baseUrl);
-      const proxyResponse = await fetch(proxyUrl);
+    // Step 4: Fetch the transcript XML (also using CORS proxy)
+    const transcriptProxyUrl = proxy + encodeURIComponent(englishTrack.baseUrl);
+    const transcriptResponse = await fetch(transcriptProxyUrl);
 
-      if (proxyResponse.ok) {
-        transcriptXml = await proxyResponse.text();
-      } else {
-        throw new Error('Failed to fetch transcript with proxy');
-      }
+    if (!transcriptResponse.ok) {
+      throw new Error(
+        `Failed to fetch transcript: ${transcriptResponse.status}`
+      );
     }
+
+    const transcriptXml = await transcriptResponse.text();
 
     // Step 5: Extract text from XML
     return extractTextFromXml(transcriptXml);
@@ -128,6 +123,9 @@ function extractTextFromXml(transcriptXml: string): string {
  * Can be used as a fallback
  */
 export async function fetchTranscriptDirect(videoId: string): Promise<string> {
+  // CORS proxy setup
+  const proxy = 'https://corsproxy.io/?';
+
   // Try direct URL patterns for English captions
   const directUrls = [
     `https://www.youtube.com/api/timedtext?lang=en&v=${videoId}`,
@@ -137,19 +135,11 @@ export async function fetchTranscriptDirect(videoId: string): Promise<string> {
 
   let transcriptXml = '';
 
-  // Try each URL pattern
+  // Try each URL pattern with proxy
   for (const url of directUrls) {
     try {
-      // Try direct fetch first
-      let response;
-      try {
-        response = await fetch(url);
-      } catch {
-        // If fetch fails (likely CORS error), try using a proxy
-        const proxy = 'https://corsproxy.io/?';
-        const proxyUrl = proxy + encodeURIComponent(url);
-        response = await fetch(proxyUrl);
-      }
+      const proxyUrl = proxy + encodeURIComponent(url);
+      const response = await fetch(proxyUrl);
 
       if (response.ok) {
         transcriptXml = await response.text();

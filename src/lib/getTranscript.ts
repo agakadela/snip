@@ -31,28 +31,32 @@ export const extractVideoId = (url: string): string | null => {
 };
 
 /**
- * Fetch the transcript for a YouTube video by ID directly from the client side
+ * Fetch the transcript for a YouTube video by ID using client-side methods
+ * with server-side fallback as a last resort
  */
 export const getTranscript = async (videoId: string): Promise<string> => {
   try {
-    // Try the primary client-side method
+    // Try the primary client-side method first (with CORS proxy)
     try {
+      console.log(
+        'Attempting to fetch transcript using primary client-side method...'
+      );
       return await fetchTranscriptClientSide(videoId);
     } catch (primaryError) {
-      console.log(
-        'Primary transcript method failed, trying direct method...',
-        primaryError
-      );
+      console.log('Primary client-side method failed:', primaryError);
 
       // Try the alternative direct method
       try {
+        console.log(
+          'Attempting to fetch transcript using direct API method...'
+        );
         return await fetchTranscriptDirect(videoId);
       } catch (directError) {
-        console.log('Direct method also failed', directError);
+        console.log('Direct API method also failed:', directError);
 
-        // Fallback to server API if all client-side methods fail
+        // As a last resort, fallback to server API
         console.log(
-          'All client-side methods failed, falling back to server API'
+          'All client-side methods failed, falling back to server API...'
         );
         const response = await fetch(`/api/transcript?videoId=${videoId}`);
 
@@ -71,7 +75,7 @@ export const getTranscript = async (videoId: string): Promise<string> => {
       }
     }
   } catch (error) {
-    console.error('Error fetching transcript:', error);
+    console.error('All transcript fetch methods failed:', error);
     throw new Error(
       error instanceof Error
         ? error.message
