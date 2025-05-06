@@ -27,16 +27,14 @@ const nextConfig: NextConfig = {
         headers: [
           {
             key: 'Content-Security-Policy',
-            value: [
-              "default-src 'self';",
-              "script-src 'self' 'unsafe-eval' 'unsafe-inline';",
-              "style-src 'self' 'unsafe-inline';",
-              "img-src 'self' blob: data: https://*.ytimg.com https://*.youtube.com;",
-              "font-src 'self' data:;",
-              "connect-src 'self' https://openrouter.ai https://*.youtube.com https://youtube.com https://*.googleapis.com;",
-              "media-src 'self' https://*.youtube.com;",
-              "frame-src 'self' https://*.youtube.com;",
-            ].join(' '),
+            value:
+              "default-src 'self'; " +
+              "connect-src 'self' https://*.youtube.com https://corsproxy.io https://openrouter.ai https://*.googleapis.com; " +
+              'img-src * data: blob:; ' +
+              'media-src *; ' +
+              "script-src 'self' 'unsafe-eval' 'unsafe-inline' blob:; " +
+              "style-src 'self' 'unsafe-inline'; " +
+              'frame-src *;',
           },
           {
             key: 'X-DNS-Prefetch-Control',
