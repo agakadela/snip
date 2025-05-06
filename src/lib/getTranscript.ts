@@ -2,6 +2,11 @@
  * Function to extract transcript from a YouTube video
  */
 
+import {
+  fetchTranscriptClientSide,
+  fetchTranscriptDirect,
+} from '@/utils/transcriptUtils';
+
 /**
  * Extract the YouTube video ID from a URL
  */
@@ -26,31 +31,51 @@ export const extractVideoId = (url: string): string | null => {
 };
 
 /**
- * Fetch the transcript for a YouTube video by ID using our server-side API
+ * Fetch the transcript for a YouTube video by ID directly from the client side
  */
 export const getTranscript = async (videoId: string): Promise<string> => {
   try {
-    // Use our server-side API to avoid CORS issues
-    const response = await fetch(`/api/transcript?videoId=${videoId}`);
-    
-    if (!response.ok) {
-      const errorData = await response.json();
-      throw new Error(errorData.error || `Error: ${response.status}`);
+    // Try the primary client-side method
+    try {
+      return await fetchTranscriptClientSide(videoId);
+    } catch (primaryError) {
+      console.log(
+        'Primary transcript method failed, trying direct method...',
+        primaryError
+      );
+
+      // Try the alternative direct method
+      try {
+        return await fetchTranscriptDirect(videoId);
+      } catch (directError) {
+        console.log('Direct method also failed', directError);
+
+        // Fallback to server API if all client-side methods fail
+        console.log(
+          'All client-side methods failed, falling back to server API'
+        );
+        const response = await fetch(`/api/transcript?videoId=${videoId}`);
+
+        if (!response.ok) {
+          const errorData = await response.json();
+          throw new Error(errorData.error || `Error: ${response.status}`);
+        }
+
+        const data = await response.json();
+
+        if (!data.transcript) {
+          throw new Error('No transcript available for this video');
+        }
+
+        return data.transcript;
+      }
     }
-    
-    const data = await response.json();
-    
-    if (!data.transcript) {
-      throw new Error("No transcript available for this video");
-    }
-    
-    return data.transcript;
   } catch (error) {
-    console.error("Error fetching transcript:", error);
+    console.error('Error fetching transcript:', error);
     throw new Error(
       error instanceof Error
         ? error.message
-        : "Failed to fetch transcript. Make sure the video exists and has captions available."
+        : 'Failed to fetch transcript. Make sure the video exists and has captions available.'
     );
   }
 };
